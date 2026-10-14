@@ -23,7 +23,7 @@ let app;
 before(async () => {
   db = await abrirBanco(config.databaseUrl);
   await migrar(db);
-  app = await construirApp({ config, db, relogio: () => new Date(agora) });
+  app = await construirApp({ config, db, relogio: () => new Date(agora), limitar: false });
 });
 after(async () => {
   await app.close();
@@ -65,10 +65,48 @@ test('cadastro anônimo: tag, token e só o hash no banco', async () => {
   assert.ok(!Buffer.from(linhas[0].token_hash).toString('utf8').includes(r.corpo.token));
 });
 
+const cadastrarCrianca = (corpo) =>
+  chamar('POST', '/api/v1/jogadores', { corpo: { apelido: 'Tigre Veloz', faixaEtaria: '8-12', consentimentoResponsavel: true, ...corpo } });
+
 test('cadastro: criança começa com ranking público desligado', async () => {
-  assert.equal((await cadastrar('ANA', '8-12')).jogador.rankingPublico, false);
-  assert.equal((await cadastrar('BIA', '4-7')).jogador.rankingPublico, false);
+  assert.equal((await cadastrarCrianca({})).corpo.jogador.rankingPublico, false);
+  assert.equal((await cadastrarCrianca({ faixaEtaria: '4-7' })).corpo.jogador.rankingPublico, false);
   assert.equal((await cadastrar('VOVÔ ZÉ', '60+')).jogador.rankingPublico, true);
+});
+
+test('cadastro de criança: só apelido da lista e com autorização do responsável', async () => {
+  const livre = await cadastrarCrianca({ apelido: 'Maria Silva' });
+  assert.equal(livre.status, 422);
+  assert.equal(livre.corpo.erro.codigo, 'apelido_fora_da_lista');
+
+  const semAdulto = await cadastrarCrianca({ consentimentoResponsavel: false });
+  assert.equal(semAdulto.status, 422);
+  assert.equal(semAdulto.corpo.erro.codigo, 'consentimento_obrigatorio');
+
+  const ok = await cadastrarCrianca({ apelido: '  panda   mágico ', versaoTermos: 'v-teste' });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.corpo.jogador.apelido, 'Panda Mágico');
+  const [linha] = await db.query('SELECT consentimento_em, consentimento_versao FROM jogador WHERE id = $1', [ok.corpo.jogador.id]);
+  assert.equal(new Date(linha.consentimento_em).getTime(), agora.getTime());
+  assert.equal(linha.consentimento_versao, 'v-teste');
+});
+
+test('cadastro: apelido com palavrão é recusado (mesmo disfarçado)', async () => {
+  for (const apelido of ['P0RRA', 'c u', 'Merdinha', 'F.D.P', 'Caralhoo']) {
+    const r = await chamar('POST', '/api/v1/jogadores', { corpo: { apelido: apelido.replace(/\./g, ' '), faixaEtaria: '13+' } });
+    assert.equal(r.status, 422, apelido);
+    assert.equal(r.corpo.erro.codigo, 'apelido_improprio', apelido);
+  }
+  assert.equal((await chamar('POST', '/api/v1/jogadores', { corpo: { apelido: 'Temporada', faixaEtaria: '13+' } })).status, 201);
+});
+
+test('saúde confere o banco e a API manda cabeçalhos de segurança', async () => {
+  const r = await chamar('GET', '/api/v1/saude');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.corpo, { ok: true });
+  assert.equal(r.headers['x-content-type-options'], 'nosniff');
+  assert.match(r.headers['content-security-policy'], /default-src 'none'/);
+  assert.equal(r.headers['x-frame-options'], 'SAMEORIGIN');
 });
 
 test('cadastro: apelido e faixa inválidos', async () => {
@@ -251,6 +289,10 @@ test('diário: conta gerada no servidor e só a melhor tentativa conta', async (
   assert.equal(t.melhor_pontos, r1.corpo.pontos);
 
   assert.equal((await abrir(token, { modo: 'diario', dataDiario: '2026-01-01' })).corpo.erro.codigo, 'diario_fora_do_dia');
+  // nem ontem nem amanhã: daria para treinar o desafio antes de ele valer
+  for (const dia of ['2026-10-13', '2026-10-15']) {
+    assert.equal((await abrir(token, { modo: 'diario', dataDiario: dia })).corpo.erro.codigo, 'diario_fora_do_dia');
+  }
 });
 
 test('apagar a conta remove tudo em cascata (LGPD)', async () => {

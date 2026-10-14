@@ -6,9 +6,13 @@
  */
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { montarPartida, duracaoPrevistaMs, tetoColeta } from '../../js/regras-partida.js';
 import { avaliarDesempenho } from '../../js/progresso.js';
 import { multDaVelocidade, configRelampago, VELOCIDADES, OPCOES_RELAMPAGO } from '../../js/perfis.js';
+import { RE_APELIDO, apelidoImproprio, apelidoProntoValido } from '../../js/apelidos.js';
+import { FAIXAS_COM_RESPONSAVEL, VERSAO_TERMOS } from '../../js/responsavel.js';
 import { gerarToken, hashToken, gerarSeed, assinarPartida, conferirAssinatura } from './seguranca.js';
 import { conferirPartida } from './plausibilidade.js';
 
@@ -17,8 +21,18 @@ export const VALIDADE_PARTIDA_MS = 10 * 60 * 1000;
 const FUSO = 'America/Sao_Paulo';
 const FAIXAS = ['4-7', '8-12', '13+', '60+'];
 const FAIXAS_RANKING_LIGADO = new Set(['13+', '60+']);
-const RE_APELIDO = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9 _]{3,12}$/;
 const TENTATIVAS_TAG = 20;
+
+/**
+ * Limite de requisições por IP (por minuto, salvo onde diz). Uma partida honesta leva
+ * vários segundos, então 30 aberturas por minuto já é muito acima do normal.
+ */
+export const LIMITES = {
+  geral: { max: 120, timeWindow: '1 minute' },
+  cadastro: { max: 10, timeWindow: '1 hour' }, // escola/família atrás do mesmo IP ainda cabe
+  partida: { max: 30, timeWindow: '1 minute' },
+  ranking: { max: 60, timeWindow: '1 minute' },
+};
 
 export class ErroHttp extends Error {
   constructor(status, codigo, mensagem) {
@@ -98,6 +112,8 @@ const esquemaCadastro = {
     properties: {
       apelido: { type: 'string', minLength: 1, maxLength: 40 },
       faixaEtaria: { enum: FAIXAS },
+      consentimentoResponsavel: { type: 'boolean', default: false },
+      versaoTermos: { type: 'string', maxLength: 40 },
     },
   },
 };
@@ -152,17 +168,33 @@ const esquemaFinalizar = {
 };
 
 /**
- * @param {{config:object, db:import('./db.js').Banco, relogio?:()=>Date, logger?:boolean|object}} o
+ * @param {{config:object, db:import('./db.js').Banco, relogio?:()=>Date, logger?:boolean|object,
+ *          limitar?:boolean}} o  limitar=false desliga o limite por IP (testes que fazem muitas chamadas)
  */
-export async function construirApp({ config, db, relogio = () => new Date(), logger = false }) {
-  const app = Fastify({ logger, bodyLimit: 16 * 1024 });
+export async function construirApp({ config, db, relogio = () => new Date(), logger = false, limitar = true }) {
+  // sem isso, atrás do proxy da hospedagem todo mundo teria o mesmo IP e dividiria o limite
+  const app = Fastify({ logger, bodyLimit: 16 * 1024, trustProxy: config.proxies || false });
 
+  await app.register(helmet, {
+    // a API só devolve JSON; o front fica em outra origem e lê via CORS
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+    hsts: config.producao ? { maxAge: 31536000, includeSubDomains: true } : false,
+  });
   await app.register(cors, {
     origin: config.corsOrigens,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     maxAge: 600,
   });
+  if (limitar) {
+    await app.register(rateLimit, {
+      ...LIMITES.geral,
+      errorResponseBuilder: (req, ctx) =>
+        new ErroHttp(429, 'muitas_requisicoes', `Calma! Tente de novo em ${Math.ceil(ctx.ttl / 1000)} s`),
+    });
+  }
+  const limite = (nome) => (limitar ? { config: { rateLimit: LIMITES[nome] } } : {});
 
   app.setErrorHandler((erro, req, resp) => {
     if (erro instanceof ErroHttp) return resp.status(erro.status).send({ erro: { codigo: erro.codigo, mensagem: erro.message } });
@@ -194,22 +226,45 @@ export async function construirApp({ config, db, relogio = () => new Date(), log
   }
 
   /* ---------- rotas ---------- */
-  app.get('/api/v1/saude', async () => ({ ok: true }));
-
-  app.post('/api/v1/jogadores', { schema: esquemaCadastro }, async (req, resp) => {
-    const apelido = req.body.apelido.replace(/\s+/g, ' ').trim();
-    if (!RE_APELIDO.test(apelido)) {
-      throw new ErroHttp(422, 'apelido_invalido', 'Apelido: 3 a 12 letras, números, espaço ou _');
+  // usada pelo healthcheck do Docker/hospedagem: só diz "ok" se o banco responder
+  app.get('/api/v1/saude', { config: { rateLimit: false } }, async (req, resp) => {
+    try {
+      await db.query('SELECT 1');
+      return { ok: true };
+    } catch (e) {
+      req.log.error(e);
+      return resp.status(503).send({ ok: false, erro: { codigo: 'banco_fora', mensagem: 'Banco indisponível' } });
     }
-    const { faixaEtaria } = req.body;
+  });
+
+  app.post('/api/v1/jogadores', { schema: esquemaCadastro, ...limite('cadastro') }, async (req, resp) => {
+    const { faixaEtaria, consentimentoResponsavel } = req.body;
+    const crianca = FAIXAS_COM_RESPONSAVEL.has(faixaEtaria);
+    let apelido = req.body.apelido.replace(/\s+/g, ' ').trim();
+    if (crianca) {
+      // criança não digita apelido: só os da lista pronta (sem nome real, sem texto livre)
+      apelido = apelidoProntoValido(apelido);
+      if (!apelido) throw new ErroHttp(422, 'apelido_fora_da_lista', 'Para até 12 anos, escolha um apelido da lista');
+      if (!consentimentoResponsavel) {
+        throw new ErroHttp(422, 'consentimento_obrigatorio', 'Um responsável precisa autorizar o ranking online');
+      }
+    } else {
+      if (!RE_APELIDO.test(apelido)) {
+        throw new ErroHttp(422, 'apelido_invalido', 'Apelido: 3 a 12 letras, números, espaço ou _');
+      }
+      if (apelidoImproprio(apelido)) throw new ErroHttp(422, 'apelido_improprio', 'Esse apelido não pode. Escolha outro');
+    }
+    const consentimentoEm = crianca ? relogio() : null;
+    const consentimentoVersao = crianca ? req.body.versaoTermos || VERSAO_TERMOS : null;
     const token = gerarToken();
     for (let i = 0; i < TENTATIVAS_TAG; i++) {
       const tag = 1000 + Math.floor(Math.random() * 9000);
       try {
         const jogador = await db.transacao(async (tx) => {
           const [j] = await tx.query(
-            `INSERT INTO jogador (apelido, tag, faixa_etaria, ranking_publico) VALUES ($1, $2, $3, $4) RETURNING *`,
-            [apelido, tag, faixaEtaria, FAIXAS_RANKING_LIGADO.has(faixaEtaria)],
+            `INSERT INTO jogador (apelido, tag, faixa_etaria, ranking_publico, consentimento_em, consentimento_versao)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [apelido, tag, faixaEtaria, FAIXAS_RANKING_LIGADO.has(faixaEtaria), consentimentoEm, consentimentoVersao],
           );
           await tx.query('INSERT INTO jogador_token (token_hash, jogador_id) VALUES ($1, $2)', [hashToken(token, config.tokenPepper), j.id]);
           return j;
@@ -234,7 +289,7 @@ export async function construirApp({ config, db, relogio = () => new Date(), log
   });
 
   // melhor partida de cada jogador no período (ninguém ocupa o top 10 sozinho)
-  app.get('/api/v1/ranking', { schema: esquemaRanking, preHandler: autenticarSeTiver }, async (req) => {
+  app.get('/api/v1/ranking', { schema: esquemaRanking, preHandler: autenticarSeTiver, ...limite('ranking') }, async (req) => {
     const { periodo } = req.query;
     const agora = relogio();
     const filtro = periodo === 'semana' ? inicioDaSemana(agora) : periodo === 'dia' ? dataNoFuso(agora) : null;
@@ -284,15 +339,15 @@ export async function construirApp({ config, db, relogio = () => new Date(), log
     };
   });
 
-  app.post('/api/v1/partidas', { schema: esquemaAbrir, preHandler: autenticar }, async (req, resp) => {
+  app.post('/api/v1/partidas', { schema: esquemaAbrir, preHandler: autenticar, ...limite('partida') }, async (req, resp) => {
     const { modo, expressao, velocidade, relampago } = req.body;
     const agora = relogio();
     let dataDiario = null;
     if (modo === 'diario') {
-      // aceita o dia de hoje no fuso do jogo, com 1 dia de folga para quem está em outro fuso
-      const dias = [-1, 0, 1].map((d) => dataNoFuso(new Date(agora.getTime() + d * 86400000)));
-      dataDiario = req.body.dataDiario ?? dias[1];
-      if (!dias.includes(dataDiario)) throw new ErroHttp(422, 'diario_fora_do_dia', 'Esse desafio diário não está valendo agora');
+      // só vale o desafio de hoje no fuso do jogo (senão daria para treinar o de amanhã antes)
+      const hoje = dataNoFuso(agora);
+      dataDiario = req.body.dataDiario ?? hoje;
+      if (dataDiario !== hoje) throw new ErroHttp(422, 'diario_fora_do_dia', 'Esse desafio diário não está valendo agora');
     } else if (!expressao?.trim()) {
       throw new ErroHttp(422, 'conta_invalida', 'Conta vazia');
     }
@@ -328,7 +383,7 @@ export async function construirApp({ config, db, relogio = () => new Date(), log
     });
   });
 
-  app.post('/api/v1/partidas/:id/finalizar', { schema: esquemaFinalizar, preHandler: autenticar }, async (req) => {
+  app.post('/api/v1/partidas/:id/finalizar', { schema: esquemaFinalizar, preHandler: autenticar, ...limite('partida') }, async (req) => {
     const { assinatura, idempotencyKey, duracaoMs } = req.body;
     const agora = relogio();
     let expirou = false;

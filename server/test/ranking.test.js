@@ -24,7 +24,11 @@ async function chamar(metodo, url, { token, corpo } = {}) {
   const r = await app.inject({ method: metodo, url, headers: token ? { authorization: `Bearer ${token}` } : {}, ...(corpo ? { payload: corpo } : {}) });
   return { status: r.statusCode, corpo: r.body ? JSON.parse(r.body) : null };
 }
-const cadastrar = async (apelido, faixaEtaria = '13+') => (await chamar('POST', '/api/v1/jogadores', { corpo: { apelido, faixaEtaria } })).corpo;
+const cadastrar = async (apelido, faixaEtaria = '13+') => {
+  const crianca = faixaEtaria === '4-7' || faixaEtaria === '8-12';
+  const corpo = crianca ? { apelido: 'Foca Feliz', faixaEtaria, consentimentoResponsavel: true } : { apelido, faixaEtaria };
+  return (await chamar('POST', '/api/v1/jogadores', { corpo })).corpo;
+};
 
 const PERFEITO = { coletados: 10, total: 10, comboMax: 10, danos: 0, rapido: false, pulou: false, auto: false };
 const MEDIO = { coletados: 6, total: 10, comboMax: 3, danos: 1, rapido: false, pulou: false, auto: false };
@@ -46,7 +50,7 @@ const ranking = (periodo, token) => chamar('GET', `/api/v1/ranking${periodo ? `?
 before(async () => {
   db = await abrirBanco(config.databaseUrl);
   await migrar(db);
-  app = await construirApp({ config, db, relogio: () => new Date(agora) });
+  app = await construirApp({ config, db, relogio: () => new Date(agora), limitar: false });
 
   for (const [nome, faixa] of [['ANA', '13+'], ['BETO', '13+'], ['CACÁ', '8-12'], ['DUDU', '13+']]) j[nome] = await cadastrar(nome, faixa);
 

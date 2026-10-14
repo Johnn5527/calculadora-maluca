@@ -14,7 +14,8 @@ export function carregarArquivoEnv(caminho = ARQUIVO_ENV) {
 
 /**
  * @param {Record<string, string|undefined>} env
- * @returns {{databaseUrl:string, hmacPartida:string, tokenPepper:string, corsOrigens:string[], porta:number, host:string}}
+ * @returns {{databaseUrl:string, hmacPartida:string, tokenPepper:string, corsOrigens:string[],
+ *            producao:boolean, proxies:number, porta:number, host:string}}
  */
 export function lerConfig(env = process.env) {
   const erros = [];
@@ -38,12 +39,25 @@ export function lerConfig(env = process.env) {
   }
   if (hmacPartida && hmacPartida === tokenPepper) erros.push('HMAC_PARTIDA_SECRET e TOKEN_PEPPER precisam ser diferentes');
 
+  const producao = env.NODE_ENV === 'production';
+  if (producao && databaseUrl.startsWith('pglite:')) {
+    erros.push('DATABASE_URL: PGlite é só para desenvolvimento; em produção use um Postgres de verdade (Neon etc.)');
+  }
+  if (producao && corsOrigens.some((o) => o.startsWith('http://'))) {
+    erros.push('CORS_ORIGENS: em produção as origens precisam ser https://');
+  }
+  const proxies = Number(env.TRUST_PROXY ?? 0);
+  if (!Number.isInteger(proxies) || proxies < 0) erros.push('TRUST_PROXY precisa ser 0 ou o número de proxies na frente da API');
+
   if (erros.length) throw new Error(`Configuração inválida:\n  - ${erros.join('\n  - ')}`);
   return {
     databaseUrl,
     hmacPartida,
     tokenPepper,
     corsOrigens,
+    producao,
+    // quantos proxies (Render, Fly, Cloudflare) ficam na frente: define de onde vem o IP real
+    proxies,
     porta: Number(env.PORT) || 8787,
     host: env.HOST?.trim() || '127.0.0.1',
   };
