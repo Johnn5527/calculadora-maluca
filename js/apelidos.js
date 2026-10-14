@@ -14,7 +14,7 @@ export const APELIDOS_PRONTOS = Object.freeze([
   'Urso Gentil', 'Pinguim Top', 'Abelha Ágil', 'Tatu Bola', 'Peixe Voador',
   'Lobo Esperto', 'Zebra Listra', 'Cometa Azul', 'Robô Amigo', 'Foguete Zum',
   'Estrela Boa', 'Nuvem Fofa', 'Trovão Doce', 'Arco Íris', 'Pipoca Doida',
-  'Bolha Feliz', 'Cacto Legal', 'Banana Nanica', 'Kiwi Valente', 'Jabuti Turbo',
+  'Bolha Feliz', 'Cacto Legal', 'Manga Doida', 'Kiwi Valente', 'Jabuti Turbo',
   'Ouriço Ágil', 'Tucano Top', 'Arara Rápida', 'Mico Leão', 'Boto Rosa',
   'Capivara Zen', 'Lhama Chique', 'Polvo Pirata', 'Dragão Bom', 'Fada Ligeira',
 ]);
@@ -43,7 +43,7 @@ const RAIZES = [
 ];
 // Palavras curtas ou comuns dentro de outras ("pora" em "temporada"): só contam inteiras.
 const PALAVRAS = new Set([
-  'cu', 'cus', 'puta', 'puto', 'putas', 'putos', 'fdp', 'vsf', 'pqp', 'tnc', 'krl', 'crl', 'pau',
+  'cu', 'cus', 'puta', 'puto', 'putas', 'putos', 'fdp', 'vsf', 'pqp', 'tnc', 'krl', 'crl',
   'rola', 'sexo', 'sex', 'xxx', 'rape', 'cock', 'dick', 'ass', 'bct', 'fod', 'foda', 'fode',
   'porra', 'bicha',
 ]);

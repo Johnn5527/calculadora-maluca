@@ -55,15 +55,26 @@ function bloco(tipo, dados) {
   return Buffer.concat([tam, corpo, crc]);
 }
 
-function png(tamanho) {
+/**
+ * @param {number} tamanho lado em px
+ * @param {number} [arteFracao] fração do lado ocupada pelo desenho; o resto é fundo.
+ *   Ícone "maskable" usa 0,625: o Android corta tudo fora do círculo de 80% (zona segura).
+ */
+function png(tamanho, arteFracao = 1) {
   const arte = pixelArt16();
-  const escala = tamanho / 16;
+  const lado = Math.round((tamanho * arteFracao) / 16) * 16; // múltiplo de 16: pixels nítidos
+  const escala = lado / 16;
+  const margem = Math.floor((tamanho - lado) / 2);
+  const fundo = arte[0];
   const linhas = Buffer.alloc(tamanho * (tamanho * 3 + 1));
   for (let y = 0; y < tamanho; y++) {
     const base = y * (tamanho * 3 + 1);
     linhas[base] = 0; // filtro "none"
     for (let x = 0; x < tamanho; x++) {
-      const [r, g, b] = arte[Math.floor(y / escala) * 16 + Math.floor(x / escala)];
+      const ax = Math.floor((x - margem) / escala);
+      const ay = Math.floor((y - margem) / escala);
+      const dentro = ax >= 0 && ay >= 0 && ax < 16 && ay < 16;
+      const [r, g, b] = dentro ? arte[ay * 16 + ax] : fundo;
       linhas[base + 1 + x * 3] = r;
       linhas[base + 2 + x * 3] = g;
       linhas[base + 3 + x * 3] = b;
@@ -86,4 +97,8 @@ mkdirSync(join(raiz, 'icons'), { recursive: true });
 for (const t of [192, 512]) {
   writeFileSync(join(raiz, 'icons', `icon-${t}.png`), png(t));
   console.log(`icons/icon-${t}.png gerado`);
+  writeFileSync(join(raiz, 'icons', `icon-maskable-${t}.png`), png(t, 0.625));
+  console.log(`icons/icon-maskable-${t}.png gerado`);
 }
+writeFileSync(join(raiz, 'icons', 'apple-touch-icon.png'), png(180, 0.8));
+console.log('icons/apple-touch-icon.png gerado');

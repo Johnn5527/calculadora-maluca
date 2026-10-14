@@ -33,6 +33,7 @@ import {
 import { prepararDia, atualizarMissoes } from './missoes.js';
 import { processarEvento } from './conquistas.js';
 import { criarEditorSkin } from './editor-skin.js';
+import { novoDesafio, VERSAO_TERMOS } from './responsavel.js';
 import * as ui from './ui.js';
 
 /* =========================================================================
@@ -101,6 +102,10 @@ function iniciar() {
   });
   ui.el.formConfig.addEventListener('input', salvarConfigDoForm);
   ui.el.formConfig.addEventListener('change', salvarConfigDoForm);
+  ui.el.formConfig.addEventListener('submit', (e) => e.preventDefault()); // Enter no campo não recarrega
+  ui.el.formResponsavel.addEventListener('submit', conferirResponsavel);
+  ui.el.btnResponsavelNao.addEventListener('click', () => ui.el.dlgResponsavel.close());
+  ui.el.btnApagarOnline.addEventListener('click', apagarDadosOnline);
 
   // v2: desafio diário, conquistas, editor de skins, modo professor
   ui.el.btnDiario.addEventListener('click', abrirDiario);
@@ -565,8 +570,67 @@ function aoUsarAbasRanking(e) {
 
 function abrirConfig() {
   if (estado.ocupado) return;
-  ui.preencherConfig(estado.config, contextoSkins());
+  preencherConfig();
   ui.el.dlgConfig.showModal();
+}
+
+function preencherConfig() {
+  ui.preencherConfig(estado.config, contextoSkins());
+  const autorizado = estado.config.consentimento;
+  let nota = null;
+  if (servidor.precisaResponsavel(estado.config)) nota = '🧑‍🧒 Neste perfil, ligar o ranking online pede a autorização de um adulto.';
+  else if (autorizado && ['infantil', 'crianca'].includes(estado.config.perfil)) {
+    nota = `✅ Ranking online autorizado por um adulto em ${new Date(autorizado.em).toLocaleDateString('pt-BR')}.`;
+  }
+  ui.notaResponsavel(nota);
+}
+
+/* ---------------- Portão do responsável (LGPD: criança só entra online com um adulto) ---------------- */
+
+let desafioResponsavel = null;
+
+function abrirPortaoResponsavel() {
+  desafioResponsavel = novoDesafio();
+  ui.abrirPortaoResponsavel(desafioResponsavel);
+}
+
+function conferirResponsavel(e) {
+  e.preventDefault();
+  const f = ui.el.formResponsavel;
+  const resposta = f.resposta.value.trim();
+  if (resposta !== desafioResponsavel.resposta) {
+    // errou: troca o número para não dar para ir chutando
+    desafioResponsavel = novoDesafio();
+    ui.el.responsavelDesafio.textContent = desafioResponsavel.texto.toUpperCase();
+    f.resposta.value = '';
+    ui.el.responsavelErro.textContent = 'Número errado. Tente este outro.';
+    f.resposta.focus();
+    return;
+  }
+  if (!f.aceito.checked) {
+    ui.el.responsavelErro.textContent = 'Marque a caixa de autorização para continuar.';
+    f.aceito.focus();
+    return;
+  }
+  estado.config = { ...estado.config, backendAtivo: true, consentimento: { em: new Date().toISOString(), versao: VERSAO_TERMOS } };
+  armazenamento.salvarConfig(estado.config);
+  ui.el.dlgResponsavel.close();
+  if (ui.el.dlgConfig.open) preencherConfig();
+  ui.toast('Ranking online autorizado. Obrigado!');
+}
+
+async function apagarDadosOnline() {
+  if (!confirm('Apagar do servidor o jogador deste aparelho, com todas as partidas online? Os dados do aparelho continuam.')) return;
+  const r = await servidor.apagarDadosOnline(estado.config);
+  if (r === 'erro') {
+    ui.toast('Não deu para falar com o servidor agora. Tente de novo mais tarde.');
+    return;
+  }
+  // a autorização vale para o cadastro apagado: um novo cadastro pede outra
+  estado.config = { ...estado.config, backendAtivo: false, consentimento: null };
+  armazenamento.salvarConfig(estado.config);
+  preencherConfig();
+  ui.toast(r === 'apagado' ? 'Dados online apagados.' : 'Este aparelho não tinha dados online.');
 }
 
 /* ---------------- Perfis por idade ---------------- */
@@ -578,10 +642,15 @@ function abrirPerfis() {
 
 function escolherPerfil(id) {
   estado.config = aplicarPerfil(estado.config, id);
+  const avisos = ['Perfil aplicado! Tudo pode ser ajustado em ⚙️.'];
+  if (estado.config.backendAtivo && servidor.precisaResponsavel(estado.config)) {
+    estado.config.backendAtivo = false;
+    avisos.push('Ranking online desligado: para ligar neste perfil, chame um adulto em ⚙️.');
+  }
   armazenamento.salvarConfig(estado.config);
   aplicarConfig();
   ui.el.dlgPerfil.close();
-  mostrarAvisos(['Perfil aplicado! Tudo pode ser ajustado em ⚙️.']);
+  mostrarAvisos(avisos);
 }
 
 /* ---------------- Desafio diário, missões e sequência ---------------- */
@@ -720,7 +789,14 @@ function registrarServiceWorker() {
 }
 
 function salvarConfigDoForm() {
+  const ligandoOnline = !estado.config.backendAtivo && ui.el.formConfig.backendAtivo.checked;
   estado.config = ui.lerConfig(estado.config);
+  if (ligandoOnline && servidor.precisaResponsavel(estado.config)) {
+    // só liga depois que o adulto autorizar no portão
+    estado.config.backendAtivo = false;
+    ui.el.formConfig.backendAtivo.checked = false;
+    abrirPortaoResponsavel();
+  }
   armazenamento.salvarConfig(estado.config);
   aplicarConfig();
 }

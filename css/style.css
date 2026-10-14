@@ -1265,6 +1265,53 @@ body.caos .rev-cartao {
   gap: 14px;
 }
 
+.nota-config {
+  margin: 0;
+  font-size: calc(9px * var(--fs));
+  line-height: 1.6;
+}
+
+.links-legais {
+  margin: 0;
+  text-align: center;
+  font-size: calc(9px * var(--fs));
+  line-height: 1.8;
+}
+.links-legais a { color: inherit; }
+
+/* ---------- Portão do responsável ---------- */
+.responsavel-intro {
+  margin: 0 0 10px;
+  font-size: calc(9px * var(--fs));
+  line-height: 1.7;
+}
+
+.responsavel-lista {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-family: system-ui, sans-serif;
+  font-size: calc(14px * var(--fs));
+  line-height: 1.5;
+}
+.responsavel-lista li { margin-bottom: 6px; }
+
+.form-responsavel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.form-responsavel .campo > span { line-height: 1.7; }
+.form-responsavel input[name="resposta"] { max-width: 6ch; font-size: calc(18px * var(--fs)); text-align: center; }
+
+.responsavel-erro {
+  min-height: 1em;
+  margin: 0;
+  color: #e43b44;
+  font-size: calc(9px * var(--fs));
+  line-height: 1.6;
+}
+
 .campo {
   display: flex;
   flex-direction: column;

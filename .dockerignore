@@ -12,6 +12,7 @@ server/dados/
 
 # Gerados/locais
 **/node_modules/
+dist/
 backend/target/
 .git/
 .DS_Store

@@ -8,6 +8,7 @@ import { CONQUISTAS_PADRAO } from './conquistas.js';
 import { validarSkin } from './skin-codigo.js';
 import { MISSOES_PADRAO } from './missoes.js';
 import { VERSAO_PONTOS } from './progresso.js';
+import { API_URL } from './ambiente.js';
 
 const CHAVES = {
   historico: 'cm:historico',
@@ -47,11 +48,12 @@ export const CONFIG_PADRAO = {
   botoesGrandes: false,
   chefaoLivre: false,
   backendAtivo: false,
-  backendUrl: 'http://localhost:8787',
+  backendUrl: API_URL,
+  // autorização do responsável para o ranking online (perfis até 12 anos): {em, versao} ou null
+  consentimento: null,
 };
 
-/** Endereço do antigo servidor Java, trocado pelo novo na leitura. */
-const URL_BACKEND_ANTIGA = 'http://localhost:8080';
+const ehLocal = (url) => /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url);
 
 export const PROGRESSO_PADRAO = {
   xp: 0,
@@ -84,7 +86,10 @@ function gravar(chave, valor) {
 /* ---------------- Configurações ---------------- */
 export function carregarConfig() {
   const cfg = ler(CHAVES.config, CONFIG_PADRAO);
-  if (cfg.backendUrl === URL_BACKEND_ANTIGA) cfg.backendUrl = CONFIG_PADRAO.backendUrl;
+  // endereço local guardado (servidor Java antigo ou dev) não vale no site publicado
+  if (cfg.backendUrl === 'http://localhost:8080' || (ehLocal(cfg.backendUrl) && !ehLocal(API_URL))) {
+    cfg.backendUrl = API_URL;
+  }
   return cfg;
 }
 export const salvarConfig = (cfg) => gravar(CHAVES.config, cfg);

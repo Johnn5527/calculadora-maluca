@@ -27,8 +27,7 @@ export function porExtenso(n) {
  * Fica entre 21 e 99 e nunca é dezena redonda, para não dar para chutar.
  */
 export function novoDesafio(aleatorio = Math.random) {
-  let n;
-  do n = 21 + Math.floor(aleatorio() * 79);
-  while (n % 10 === 0);
+  const n = NUMEROS_DO_DESAFIO[Math.floor(aleatorio() * NUMEROS_DO_DESAFIO.length)];
   return { texto: porExtenso(n), resposta: String(n) };
 }
+const NUMEROS_DO_DESAFIO = Array.from({ length: 79 }, (_, i) => 21 + i).filter((n) => n % 10 !== 0);

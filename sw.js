@@ -5,11 +5,11 @@
  *   - instala: pré-carrega todo o "app shell" (HTML, CSS, JS, ícones)
  *   - mesma origem: rede primeiro (pega atualizações), cache como reserva offline
  *   - Google Fonts: cache primeiro (a fonte não muda)
- *   - /api/ (backend Java): nunca passa pelo cache
+ *   - API do ranking (outra origem ou /api/): nunca passa pelo cache
  *
  * Ao mudar arquivos do app, suba a VERSAO para descartar o cache antigo.
  */
-const VERSAO = 'cm-v3.2.0';
+const VERSAO = 'cm-v3.3.0';
 const CACHE_APP = `${VERSAO}-app`;
 const CACHE_FONTES = 'cm-fontes';
 
@@ -17,11 +17,20 @@ const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './privacidade.html',
+  './termos.html',
   './css/style.css',
+  './css/legal.css',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png',
   './js/main.js',
+  './js/ambiente.js',
+  './js/apelidos.js',
+  './js/responsavel.js',
   './js/ui.js',
   './js/audio.js',
   './js/storage.js',

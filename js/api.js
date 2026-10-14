@@ -4,9 +4,16 @@
  * O cliente nunca manda pontos nem rank: só os números brutos da partida; o servidor calcula o resto.
  */
 import { carregarJogador, salvarJogador, esquecerJogador } from './storage.js';
+import { RE_APELIDO, apelidoImproprio, sortearApelidoPronto } from './apelidos.js';
+import { FAIXAS_COM_RESPONSAVEL, VERSAO_TERMOS } from './responsavel.js';
 
 const TEMPO_LIMITE_MS = 4000;
 const FAIXA_DO_PERFIL = { infantil: '4-7', crianca: '8-12', teen: '13+', senior: '60+' };
+const faixaDoPerfil = (cfg) => FAIXA_DO_PERFIL[cfg.perfil] ?? '13+';
+
+/** true quando o perfil é de criança e ainda falta um adulto autorizar o ranking online. */
+export const precisaResponsavel = (cfg) =>
+  FAIXAS_COM_RESPONSAVEL.has(faixaDoPerfil(cfg)) && cfg.consentimento?.versao !== VERSAO_TERMOS;
 
 const raiz = (cfg) => `${cfg.backendUrl.replace(/\/$/, '')}/api/v1`;
 const ativo = (cfg) => !!(cfg.backendAtivo && cfg.backendUrl);
@@ -50,22 +57,42 @@ function uuid() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-/** Apelido no formato que o servidor aceita: 3 a 12 letras (com acento), números, espaço ou _. */
+/** Apelido no formato que o servidor aceita (3 a 12 letras, números, espaço ou _) e sem palavrão. */
 export function apelidoDoNome(nome) {
   const limpo = String(nome || '').replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9 _]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12).trim();
-  return limpo.length >= 3 ? limpo : 'JOGADOR';
+  return RE_APELIDO.test(limpo) && !apelidoImproprio(limpo) ? limpo : 'JOGADOR';
 }
 
 let cadastroEmAndamento = null;
 
-/** Cadastra o jogador anônimo na primeira vez (o token fica só neste aparelho). */
+/** Corpo do cadastro: criança ganha apelido sorteado da lista e leva a autorização do adulto. */
+function dadosDoCadastro(cfg) {
+  const faixaEtaria = faixaDoPerfil(cfg);
+  if (!FAIXAS_COM_RESPONSAVEL.has(faixaEtaria)) return { apelido: apelidoDoNome(cfg.nome), faixaEtaria };
+  return { apelido: sortearApelidoPronto(), faixaEtaria, consentimentoResponsavel: true, versaoTermos: cfg.consentimento.versao };
+}
+
+async function cadastrar(cfg) {
+  const corpo = dadosDoCadastro(cfg);
+  try {
+    return await requisitar(cfg, '/jogadores', { metodo: 'POST', corpo });
+  } catch (e) {
+    // o servidor pode ter um filtro mais novo que este app: tenta de novo com o apelido padrão
+    if (e.codigo !== 'apelido_improprio' && e.codigo !== 'apelido_invalido') throw e;
+    return requisitar(cfg, '/jogadores', { metodo: 'POST', corpo: { ...corpo, apelido: 'JOGADOR' } });
+  }
+}
+
+/**
+ * Cadastra o jogador anônimo na primeira vez (o token fica só neste aparelho).
+ * Trocar o perfil para outra faixa de idade cria um jogador novo, com as regras daquela faixa.
+ * @returns {Promise<object|null>} null quando falta a autorização do responsável
+ */
 async function garantirJogador(cfg) {
+  if (precisaResponsavel(cfg)) return null;
   const salvo = carregarJogador();
-  if (salvo?.servidor === raiz(cfg)) return salvo;
-  cadastroEmAndamento ??= requisitar(cfg, '/jogadores', {
-    metodo: 'POST',
-    corpo: { apelido: apelidoDoNome(cfg.nome), faixaEtaria: FAIXA_DO_PERFIL[cfg.perfil] ?? '13+' },
-  })
+  if (salvo?.servidor === raiz(cfg) && salvo.faixaEtaria === faixaDoPerfil(cfg)) return salvo;
+  cadastroEmAndamento ??= cadastrar(cfg)
     .then(({ jogador, token }) => {
       const j = { ...jogador, token, servidor: raiz(cfg) };
       salvarJogador(j);
@@ -97,6 +124,22 @@ export async function buscarRanking(cfg, periodo) {
 }
 
 /**
+ * LGPD: apaga no servidor tudo do jogador deste aparelho (partidas, diário, token).
+ * @returns {Promise<'apagado'|'nada'|'erro'>}
+ */
+export async function apagarDadosOnline(cfg) {
+  const salvo = carregarJogador();
+  if (!salvo?.token) return 'nada';
+  try {
+    await requisitar({ ...cfg, backendUrl: salvo.servidor.replace(/\/api\/v1$/, '') }, '/eu', { metodo: 'DELETE', token: salvo.token });
+  } catch (e) {
+    if (e.status !== 401) return 'erro'; // 401: já não existia no servidor
+  }
+  esquecerJogador();
+  return 'apagado';
+}
+
+/**
  * Abre a partida no servidor (ele já calcula a conta e as fases).
  * @returns {Promise<object|null>} null quando offline/desligado
  */
@@ -104,6 +147,7 @@ export async function abrirPartida(cfg, dados) {
   if (!ativo(cfg)) return null;
   try {
     const jogador = await garantirJogador(cfg);
+    if (!jogador) return null;
     const partida = await requisitar(cfg, '/partidas', { metodo: 'POST', corpo: dados, token: jogador.token });
     return { ...partida, token: jogador.token, idempotencyKey: uuid() };
   } catch (e) {

@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1b1b3a">
   <title>Calculadora Maluca</title>
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -189,7 +189,7 @@
       <h2 id="titulo-config">⚙️ AJUSTES</h2>
       <form method="dialog"><button class="btn-fechar" aria-label="Fechar ajustes">✕</button></form>
     </div>
-    <form id="form-config" class="form-config" onsubmit="return false">
+    <form id="form-config" class="form-config">
       <label class="campo">
         <span>Nome no ranking</span>
         <input name="nome" type="text" maxlength="16" autocomplete="nickname">
@@ -271,7 +271,45 @@
           <span>URL</span>
           <input name="backendUrl" type="url" inputmode="url" placeholder="http://localhost:8787">
         </label>
+        <p id="config-responsavel" class="nota-config" hidden></p>
+        <button id="btn-apagar-online" type="button" class="btn-bloco btn-perigo">🗑️ APAGAR MEUS DADOS ONLINE</button>
       </fieldset>
+      <p class="links-legais">
+        <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> ·
+        <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a>
+      </p>
+    </form>
+  </dialog>
+
+  <!-- ============ PORTÃO DO RESPONSÁVEL ============ -->
+  <dialog id="dlg-responsavel" class="painel" aria-labelledby="titulo-responsavel">
+    <div class="painel-topo">
+      <h2 id="titulo-responsavel">🧑‍🧒 CHAME UM ADULTO</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar sem autorizar">✕</button></form>
+    </div>
+    <p class="responsavel-intro">Esta parte é para o pai, a mãe ou o responsável. O ranking online é opcional:
+      sem ele, o jogo continua igualzinho, só que offline.</p>
+    <ul class="responsavel-lista">
+      <li>Guardamos um <strong>apelido sorteado</strong> (ex.: “Tigre Veloz#1234”), a faixa de idade e os pontos das partidas.</li>
+      <li>Não pedimos nome, e-mail, foto, telefone nem localização.</li>
+      <li>Até 12 anos a criança <strong>não aparece</strong> no ranking dos outros: ela vê só os próprios pontos.</li>
+      <li>Sem anúncios e sem compras. Dá para apagar tudo em ⚙️ › Servidor › Apagar meus dados online.</li>
+    </ul>
+    <p class="links-legais">
+      <a href="privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> ·
+      <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a>
+    </p>
+    <form id="form-responsavel" class="form-responsavel" novalidate>
+      <label class="campo">
+        <span>Para confirmar que é um adulto, escreva em algarismos: <strong id="responsavel-desafio"></strong></span>
+        <input name="resposta" type="text" inputmode="numeric" autocomplete="off" maxlength="2">
+      </label>
+      <label class="campo-check"><input name="aceito" type="checkbox"> Sou o responsável, li a política e autorizo</label>
+      <p id="responsavel-erro" class="responsavel-erro" role="alert"></p>
+      <div class="editor-botoes">
+        <button id="btn-responsavel-nao" type="button" class="btn-bloco btn-secundario">AGORA NÃO</button>
+        <button type="submit" class="btn-bloco">AUTORIZAR</button>
+      </div>
     </form>
   </dialog>
 

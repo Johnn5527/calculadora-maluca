@@ -14,6 +14,25 @@ import { aplicarPerfil, limitesDificuldade, multDaVelocidade, ritmoInimigos, con
 import { missoesDoDia, atualizarMissoes, MISSOES_PADRAO, sequenciaAtual, prepararDia } from '../js/missoes.js';
 import { duracaoBase, TETO_COLETA } from '../js/regras-partida.js';
 import { JOGOS } from '../js/games/index.js';
+import { APELIDOS_PRONTOS, RE_APELIDO, apelidoImproprio, apelidoProntoValido, normalizarApelido } from '../js/apelidos.js';
+import { porExtenso, novoDesafio } from '../js/responsavel.js';
+
+/** Apelidos e portão do responsável (regras usadas pelo app e pelo servidor). */
+function testesPublicacao() {
+  const desafios = Array.from({ length: 200 }, (_, i) => novoDesafio(() => i / 200));
+  return [
+    ['apelidos prontos: todos válidos e sem repetição',
+      APELIDOS_PRONTOS.every((a) => RE_APELIDO.test(a) && !apelidoImproprio(a)) && new Set(APELIDOS_PRONTOS).size === APELIDOS_PRONTOS.length],
+    ['apelido pronto ignora caixa e espaços', apelidoProntoValido('  tigre   VELOZ ') === 'Tigre Veloz'],
+    ['apelido livre não passa como pronto', apelidoProntoValido('Joana') === null],
+    ['normalizar desfaz disfarce', normalizarApelido('P0RRRR4') === 'pora'],
+    ['filtro pega palavrão disfarçado', ['P0RRA', 'c u', 'Merdinha', 'F D P', 'fuuuck'].every(apelidoImproprio)],
+    ['filtro não pega palavra inocente', !['Temporada', 'Computador', 'Gozado', 'Bicharada', 'Nightwolf', 'Pica Pau'].some(apelidoImproprio)],
+    ['por extenso', porExtenso(47) === 'quarenta e sete' && porExtenso(15) === 'quinze' && porExtenso(90) === 'noventa'],
+    ['desafio do adulto: 21–99, nunca redondo', desafios.every((d) => +d.resposta >= 21 && +d.resposta <= 99 && +d.resposta % 10 !== 0 && d.texto === porExtenso(+d.resposta))],
+  ];
+}
+
 function testesV3() {
   const ruim = { notasRecentes: [0, 0, 0] };
   const otimo = { notasRecentes: [100, 100, 100] };
@@ -172,7 +191,7 @@ export function rodarTestes() {
     ['divisão por zero gera fase do dragão', calcular('1/0').fases[0].op === 'divzero'],
     ['compactar mantém ordem', compactarFases([{ op: 'mul', a: 2, b: 3, r: 6 }, { op: 'add', a: 6, b: 1, r: 7 }]).map((f) => f.op).join() === 'mul,add'],
   ];
-  for (const [nome, passou] of [...extras, ...testesV2(), ...testesV3()]) resultados.push({ nome, passou, obtido: passou });
+  for (const [nome, passou] of [...extras, ...testesV2(), ...testesV3(), ...testesPublicacao()]) resultados.push({ nome, passou, obtido: passou });
 
   const falhas = resultados.filter((r) => !r.passou);
   return { total: resultados.length, falhas, resultados };

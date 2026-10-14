@@ -61,6 +61,13 @@ export const el = {
   dlgConfig: $('#dlg-config'),
   formConfig: $('#form-config'),
   btnConfigEditor: $('#btn-config-editor'),
+  configResponsavel: $('#config-responsavel'),
+  btnApagarOnline: $('#btn-apagar-online'),
+  dlgResponsavel: $('#dlg-responsavel'),
+  formResponsavel: $('#form-responsavel'),
+  responsavelDesafio: $('#responsavel-desafio'),
+  responsavelErro: $('#responsavel-erro'),
+  btnResponsavelNao: $('#btn-responsavel-nao'),
   dlgDiario: $('#dlg-diario'),
   diarioData: $('#diario-data'),
   diarioConta: $('#diario-conta'),
@@ -371,6 +378,22 @@ export function preencherConfig(cfg, { nivel, temSkinPersonalizada = false, prem
   f.backendUrl.value = cfg.backendUrl;
   const perfil = PERFIS.find((p) => p.id === cfg.perfil);
   el.perfilAtual.textContent = perfil ? `${perfil.emoji} ${perfil.nome}` : 'nenhum';
+}
+
+/** Linha sobre a autorização do responsável nos ajustes (null esconde). */
+export function notaResponsavel(texto) {
+  el.configResponsavel.hidden = !texto;
+  el.configResponsavel.textContent = texto ?? '';
+}
+
+/** Abre o portão do responsável com um desafio novo; a resposta é conferida em main.js. */
+export function abrirPortaoResponsavel(desafio) {
+  const f = el.formResponsavel;
+  f.reset();
+  el.responsavelDesafio.textContent = desafio.texto.toUpperCase();
+  el.responsavelErro.textContent = '';
+  el.dlgResponsavel.showModal();
+  f.resposta.focus();
 }
 
 function preencherOpcoes(select, itens, atual) {
