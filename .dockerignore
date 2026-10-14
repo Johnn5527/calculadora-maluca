@@ -1,0 +1,18 @@
+# Contexto do build = raiz do projeto (o servidor importa js/ do app).
+
+# Segredos: em produção, as variáveis vêm do ambiente da hospedagem, nunca de um arquivo copiado
+.env
+**/.env
+**/.env.*
+!**/.env.example
+
+# Banco de desenvolvimento (PGlite) com os jogadores de teste
+server/dados/
+**/dados/
+
+# Gerados/locais
+**/node_modules/
+backend/target/
+.git/
+.DS_Store
+Thumbs.db

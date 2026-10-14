@@ -1,0 +1,22 @@
+{
+  "name": "calculadora-maluca-servidor",
+  "version": "0.1.0",
+  "description": "API do ranking da Calculadora Maluca (Fastify + PostgreSQL). Reusa o motor e as regras do app.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node src/migrar.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "@fastify/cors": "^11.3.1",
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1"
+  }
+}

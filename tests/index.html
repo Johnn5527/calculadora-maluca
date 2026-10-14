@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testes — Calculadora Maluca</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 16px; }
+    .ok { color: #5f5; } .falha { color: #f55; }
+    h1 { font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h1>Testes do motor matemático</h1>
+  <p id="resumo">Rodando…</p>
+  <ul id="lista"></ul>
+  <script type="module">
+    import { rodarTestes } from './engine.test.js';
+    const { total, falhas, resultados } = rodarTestes();
+    document.getElementById('resumo').textContent = `${total - falhas.length}/${total} testes passaram.`;
+    const lista = document.getElementById('lista');
+    for (const r of resultados) {
+      const li = document.createElement('li');
+      li.className = r.passou ? 'ok' : 'falha';
+      li.textContent = `${r.passou ? '✓' : '✗'} ${r.nome}${r.passou ? '' : ` (obtido: ${r.obtido})`}`;
+      lista.appendChild(li);
+    }
+  </script>
+</body>
+</html>

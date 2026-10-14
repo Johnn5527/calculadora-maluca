@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Calculadora Maluca: cada '=' vira um minijogo de plataforma retrô.">
+  <meta name="theme-color" content="#1b1b3a">
+  <title>Calculadora Maluca</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-tema="dia">
+  <a class="pular-para" href="#teclado">Ir para o teclado</a>
+
+  <div id="app" class="app">
+    <header class="topo">
+      <h1 class="logo" aria-label="Calculadora Maluca">
+        <span class="logo-1" aria-hidden="true">CALCULADORA</span>
+        <span class="logo-2" aria-hidden="true">MALUCA</span>
+      </h1>
+      <div class="nivel">
+        <span id="nivel-texto" class="nivel-texto">NV 1</span>
+        <div id="barra-xp" class="barra-xp" role="progressbar" aria-label="Experiência" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="barra-xp-fill" class="barra-xp-fill"></span>
+        </div>
+      </div>
+      <nav class="topo-acoes" aria-label="Menu">
+        <button id="btn-historico" class="btn-icone" type="button" aria-label="Histórico">📜</button>
+        <button id="btn-ranking" class="btn-icone" type="button" aria-label="Ranking">🏆</button>
+        <button id="btn-diario" class="btn-icone" type="button" aria-label="Diário: desafio, missões e sequência">📅</button>
+        <button id="btn-conquistas" class="btn-icone" type="button" aria-label="Conquistas">🏅</button>
+        <button id="btn-editor" class="btn-icone" type="button" aria-label="Editor de skins">🎨</button>
+        <button id="btn-som" class="btn-icone" type="button" aria-label="Som ligado (silenciar)" aria-pressed="false">🔊</button>
+        <button id="btn-config" class="btn-icone" type="button" aria-label="Configurações">⚙️</button>
+      </nav>
+    </header>
+
+    <main id="calculadora" class="calculadora">
+      <section id="visor" class="visor" aria-label="Visor">
+        <div id="visor-expressao" class="visor-expressao">&nbsp;</div>
+        <output id="visor-resultado" class="visor-resultado" aria-live="polite" aria-atomic="true">0</output>
+        <div id="visor-bonus" class="visor-bonus" aria-live="polite"></div>
+        <button id="btn-passos" class="btn-passos" type="button" hidden aria-label="Como chegou nesse resultado? Ver passo a passo">📖 COMO?</button>
+      </section>
+
+      <div id="teclado" class="teclado" role="group" aria-label="Teclado da calculadora">
+        <button type="button" class="tecla t-funcao" data-tecla="C" aria-label="Limpar tudo">C</button>
+        <button type="button" class="tecla t-funcao" data-tecla="DEL" aria-label="Apagar último">⌫</button>
+        <button type="button" class="tecla t-funcao" data-tecla="(" aria-label="Abre parêntese">(</button>
+        <button type="button" class="tecla t-funcao" data-tecla=")" aria-label="Fecha parêntese">)</button>
+
+        <button type="button" class="tecla t-especial" data-tecla="√" aria-label="Raiz quadrada">√</button>
+        <button type="button" class="tecla t-especial" data-tecla="^" aria-label="Potência">xʸ</button>
+        <button type="button" class="tecla t-especial" data-tecla="%" aria-label="Porcentagem">%</button>
+        <button type="button" class="tecla t-op" data-tecla="÷" aria-label="Dividir">÷</button>
+
+        <button type="button" class="tecla" data-tecla="7">7</button>
+        <button type="button" class="tecla" data-tecla="8">8</button>
+        <button type="button" class="tecla" data-tecla="9">9</button>
+        <button type="button" class="tecla t-op" data-tecla="×" aria-label="Multiplicar">×</button>
+
+        <button type="button" class="tecla" data-tecla="4">4</button>
+        <button type="button" class="tecla" data-tecla="5">5</button>
+        <button type="button" class="tecla" data-tecla="6">6</button>
+        <button type="button" class="tecla t-op" data-tecla="−" aria-label="Subtrair">−</button>
+
+        <button type="button" class="tecla" data-tecla="1">1</button>
+        <button type="button" class="tecla" data-tecla="2">2</button>
+        <button type="button" class="tecla" data-tecla="3">3</button>
+        <button type="button" class="tecla t-op" data-tecla="+" aria-label="Somar">+</button>
+
+        <button type="button" class="tecla t-funcao" data-tecla="ANS" aria-label="Resultado anterior">ANS</button>
+        <button type="button" class="tecla" data-tecla="0">0</button>
+        <button type="button" class="tecla" data-tecla="." aria-label="Vírgula decimal">.</button>
+        <button type="button" class="tecla t-igual" data-tecla="=" aria-label="Calcular (abre o minijogo)">=</button>
+      </div>
+    </main>
+
+    <footer class="rodape">
+      MODO: <span id="rodape-modo">MALUCO</span>
+      <span class="rodape-dica">· Teclado: Enter calcula, R = √, A = ANS</span>
+    </footer>
+  </div>
+
+  <!-- ============ MINIJOGO ============ -->
+  <div id="jogo" class="jogo" role="dialog" aria-modal="true" aria-labelledby="jogo-titulo" hidden>
+    <div class="jogo-hud">
+      <div class="jogo-hud-linha">
+        <div id="jogo-titulo" class="jogo-titulo">MINIJOGO</div>
+        <div id="jogo-fase" class="jogo-fase"></div>
+      </div>
+      <div class="jogo-hud-linha">
+        <div id="jogo-conta" class="jogo-conta"></div>
+        <div id="jogo-contador" class="jogo-contador" aria-hidden="true">0</div>
+      </div>
+      <div class="jogo-tempo" aria-hidden="true"><span id="jogo-tempo-fill"></span></div>
+    </div>
+
+    <div class="jogo-palco">
+      <canvas id="jogo-canvas" width="320" height="180" tabindex="0"
+        aria-label="Minijogo. Setas para andar, espaço para pular, Esc para pular a fase, P para auto-play."></canvas>
+      <div id="jogo-dica" class="jogo-dica" aria-live="polite"></div>
+    </div>
+
+    <div class="jogo-controles">
+      <div class="jogo-direcao">
+        <button type="button" class="ctl" data-ctl="esq" aria-label="Andar para a esquerda">◀</button>
+        <button type="button" class="ctl" data-ctl="dir" aria-label="Andar para a direita">▶</button>
+      </div>
+      <div class="jogo-meio">
+        <button type="button" id="btn-auto" class="ctl ctl-pequeno" data-ctl="auto" aria-pressed="false">AUTO</button>
+        <button type="button" id="btn-pular" class="ctl ctl-pequeno" data-ctl="pular">PULAR ⏭</button>
+      </div>
+      <button type="button" class="ctl ctl-pulo" data-ctl="pulo" aria-label="Saltar">A</button>
+    </div>
+  </div>
+
+  <!-- ============ REVELAÇÃO ============ -->
+  <div id="revelacao" class="revelacao" role="dialog" aria-modal="true" aria-labelledby="rev-titulo" hidden>
+    <div class="rev-cartao">
+      <div id="rev-titulo" class="rev-titulo">RESULTADO!</div>
+      <div id="rev-emoji" class="rev-emoji" aria-hidden="true"></div>
+      <div id="rev-odometro" class="odometro" aria-hidden="true"></div>
+      <div id="rev-legenda" class="rev-legenda"></div>
+      <div class="rev-placar">
+        <div id="rev-estrelas" class="rev-estrelas" role="img"></div>
+        <div id="rev-rank" class="rev-rank" aria-live="polite"></div>
+      </div>
+      <div id="rev-info" class="rev-info"></div>
+      <div class="rev-botoes">
+        <button id="rev-como" type="button" class="btn-bloco btn-secundario" hidden>📖 COMO?</button>
+        <button id="rev-continuar" type="button" class="btn-bloco" hidden>CONTINUAR ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+  <div id="anuncio" class="sr-only" aria-live="assertive"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- ============ HISTÓRICO ============ -->
+  <dialog id="dlg-historico" class="painel" aria-labelledby="titulo-historico">
+    <div class="painel-topo">
+      <h2 id="titulo-historico">📜 HISTÓRICO</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar histórico">✕</button></form>
+    </div>
+    <ol id="lista-historico" class="lista-historico"></ol>
+    <button id="btn-limpar-historico" type="button" class="btn-bloco btn-perigo">LIMPAR TUDO</button>
+  </dialog>
+
+  <!-- ============ RANKING ============ -->
+  <dialog id="dlg-ranking" class="painel" aria-labelledby="titulo-ranking">
+    <div class="painel-topo">
+      <h2 id="titulo-ranking">🏆 RANKING</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar ranking">✕</button></form>
+    </div>
+    <div id="abas-ranking" class="abas-ranking" role="tablist" aria-label="Tipo de ranking">
+      <button type="button" role="tab" id="aba-ranking-local" data-aba="local" aria-controls="painel-ranking-local" aria-selected="true">📱 APARELHO</button>
+      <button type="button" role="tab" id="aba-ranking-global" data-aba="global" aria-controls="painel-ranking-online" aria-selected="false" tabindex="-1">🌎 GLOBAL</button>
+      <button type="button" role="tab" id="aba-ranking-semana" data-aba="semana" aria-controls="painel-ranking-online" aria-selected="false" tabindex="-1">📆 SEMANA</button>
+      <button type="button" role="tab" id="aba-ranking-dia" data-aba="dia" aria-controls="painel-ranking-online" aria-selected="false" tabindex="-1">📅 DIÁRIO</button>
+    </div>
+    <div id="painel-ranking-local" role="tabpanel" aria-labelledby="aba-ranking-local">
+      <section>
+        <h3>Neste aparelho</h3>
+        <ol id="lista-ranking" class="lista-ranking"></ol>
+      </section>
+      <section id="bloco-ranking-antigo" hidden>
+        <h3>Versão antiga</h3>
+        <p class="nota-ranking-antigo">Pontos da fórmula anterior: ficam guardados, mas não disputam com os novos.</p>
+        <ol id="lista-ranking-antigo" class="lista-ranking"></ol>
+      </section>
+    </div>
+    <div id="painel-ranking-online" role="tabpanel" hidden aria-live="polite">
+      <p id="ranking-online-info" class="nota-ranking"></p>
+      <ol id="lista-ranking-online" class="lista-ranking"></ol>
+      <p id="ranking-voce" class="ranking-voce" hidden></p>
+    </div>
+  </dialog>
+
+  <!-- ============ CONFIGURAÇÕES ============ -->
+  <dialog id="dlg-config" class="painel" aria-labelledby="titulo-config">
+    <div class="painel-topo">
+      <h2 id="titulo-config">⚙️ AJUSTES</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar ajustes">✕</button></form>
+    </div>
+    <form id="form-config" class="form-config" onsubmit="return false">
+      <label class="campo">
+        <span>Nome no ranking</span>
+        <input name="nome" type="text" maxlength="16" autocomplete="nickname">
+      </label>
+
+      <fieldset class="campo">
+        <legend>Intensidade</legend>
+        <div class="opcoes-intensidade">
+          <label><input type="radio" name="intensidade" value="chill"> 😌 CHILL</label>
+          <label><input type="radio" name="intensidade" value="maluco"> 🤪 MALUCO</label>
+          <label><input type="radio" name="intensidade" value="caos"> 🌀 CAOS TOTAL</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="campo">
+        <legend>Perfil</legend>
+        <p class="perfil-linha">Atual: <strong id="perfil-atual">nenhum</strong></p>
+        <button id="btn-trocar-perfil" type="button" class="btn-bloco btn-secundario">👪 TROCAR PERFIL</button>
+      </fieldset>
+
+      <fieldset class="campo">
+        <legend>Ritmo do jogo</legend>
+        <label class="campo">
+          <span>Velocidade</span>
+          <select name="velocidade"></select>
+        </label>
+        <label class="campo">
+          <span>Fase relâmpago (contas com 3+ partes)</span>
+          <select name="relampago"></select>
+        </label>
+        <label class="campo-check"><input name="chefaoLivre" type="checkbox"> Chefão em contas gigantes desde o nível 1</label>
+      </fieldset>
+
+      <fieldset class="campo">
+        <legend>Acessibilidade</legend>
+        <div class="opcoes-fonte" role="radiogroup" aria-label="Tamanho da letra">
+          <span>Letra:</span>
+          <label><input type="radio" name="fonte" value="p"> P</label>
+          <label><input type="radio" name="fonte" value="m"> M</label>
+          <label><input type="radio" name="fonte" value="g"> G</label>
+          <label><input type="radio" name="fonte" value="gg"> GG</label>
+        </div>
+        <label class="campo">
+          <span>Operações no teclado</span>
+          <select name="teclas"></select>
+        </label>
+        <label class="campo-check"><input name="contraste" type="checkbox"> Alto contraste</label>
+        <label class="campo-check"><input name="botoesGrandes" type="checkbox"> Botões grandes</label>
+        <label class="campo-check"><input name="semEfeitos" type="checkbox"> Sem flash nem tremor</label>
+        <label class="campo-check"><input name="semDerrota" type="checkbox"> Sem derrota (nota mínima B)</label>
+        <label class="campo-check"><input name="professorAuto" type="checkbox"> Mostrar o passo a passo depois de cada conta</label>
+      </fieldset>
+
+      <label class="campo">
+        <span>Tema</span>
+        <select name="tema"></select>
+      </label>
+
+      <label class="campo">
+        <span>Skin do Teclito</span>
+        <select name="skin"></select>
+      </label>
+      <button id="btn-config-editor" type="button" class="btn-bloco btn-secundario">🎨 CRIAR MINHA SKIN</button>
+
+      <label class="campo">
+        <span>Volume</span>
+        <input name="volume" type="range" min="0" max="100" step="5">
+      </label>
+
+      <label class="campo-check"><input name="mudo" type="checkbox"> Mudo</label>
+      <label class="campo-check"><input name="vibracao" type="checkbox"> Vibrar o celular (pisões e odômetro)</label>
+      <label class="campo-check"><input name="autoPlay" type="checkbox"> Auto-play (o jogo joga sozinho)</label>
+      <label class="campo-check"><input name="jogosLigados" type="checkbox"> Minijogos ligados (desligue para modo direto)</label>
+
+      <fieldset class="campo">
+        <legend>Servidor (opcional)</legend>
+        <label class="campo-check"><input name="backendAtivo" type="checkbox"> Enviar partidas para o ranking online</label>
+        <label class="campo">
+          <span>URL</span>
+          <input name="backendUrl" type="url" inputmode="url" placeholder="http://localhost:8787">
+        </label>
+      </fieldset>
+    </form>
+  </dialog>
+
+  <!-- ============ DESAFIO DIÁRIO ============ -->
+  <dialog id="dlg-diario" class="painel" aria-labelledby="titulo-diario">
+    <div class="painel-topo">
+      <h2 id="titulo-diario">📅 DESAFIO DIÁRIO</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar desafio diário">✕</button></form>
+    </div>
+    <p class="diario-intro">A mesma conta gigante para todo mundo hoje (<span id="diario-data"></span>). Derrote o Rei Ábaco!</p>
+    <div id="diario-conta" class="diario-conta"></div>
+    <p id="diario-status" class="diario-status" aria-live="polite"></p>
+    <button id="btn-jogar-diario" type="button" class="btn-bloco">ENFRENTAR O CHEFÃO ▶</button>
+    <section>
+      <h3>🎯 Missões de hoje</h3>
+      <ul id="lista-missoes" class="lista-missoes"></ul>
+      <p id="bau-missoes" class="bau-missoes" aria-live="polite"></p>
+    </section>
+    <section>
+      <h3>Sequência</h3>
+      <p id="streak-dias" class="streak-dias"></p>
+      <div id="streak-calendario" class="streak-calendario"></div>
+      <p id="streak-metas" class="streak-metas"></p>
+    </section>
+    <section>
+      <h3>Últimos desafios</h3>
+      <ol id="diario-lista" class="diario-lista"></ol>
+    </section>
+  </dialog>
+
+  <!-- ============ BOAS-VINDAS: PERFIL ============ -->
+  <dialog id="dlg-perfil" class="painel" aria-labelledby="titulo-perfil">
+    <div class="painel-topo">
+      <h2 id="titulo-perfil">👋 QUEM VAI JOGAR?</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar e manter os ajustes atuais">✕</button></form>
+    </div>
+    <p class="perfil-intro">Escolha um perfil e a calculadora se ajusta sozinha (velocidade, letras, operações). Dá para mudar tudo depois em ⚙️.</p>
+    <div id="lista-perfis" class="lista-perfis"></div>
+  </dialog>
+
+  <!-- ============ CONQUISTAS ============ -->
+  <dialog id="dlg-conquistas" class="painel" aria-labelledby="titulo-conquistas">
+    <div class="painel-topo">
+      <h2 id="titulo-conquistas">🏅 CONQUISTAS</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar conquistas">✕</button></form>
+    </div>
+    <p id="conquistas-resumo" class="conquistas-resumo"></p>
+    <ul id="lista-conquistas" class="lista-conquistas"></ul>
+  </dialog>
+
+  <!-- ============ MODO PROFESSOR ============ -->
+  <dialog id="dlg-passos" class="painel" aria-labelledby="titulo-passos">
+    <div class="painel-topo">
+      <h2 id="titulo-passos">📖 PASSO A PASSO</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar passo a passo">✕</button></form>
+    </div>
+    <div id="passos-conta" class="passos-conta"></div>
+    <ol id="lista-passos" class="lista-passos"></ol>
+    <p id="passos-resultado" class="passos-resultado"></p>
+    <p id="passos-ordem" class="passos-ordem"></p>
+  </dialog>
+
+  <!-- ============ EDITOR DE SKINS ============ -->
+  <dialog id="dlg-editor" class="painel painel-editor" aria-labelledby="titulo-editor">
+    <div class="painel-topo">
+      <h2 id="titulo-editor">🎨 EDITOR DE SKIN</h2>
+      <form method="dialog"><button class="btn-fechar" aria-label="Fechar editor">✕</button></form>
+    </div>
+    <div class="editor-area">
+      <canvas id="editor-tela" class="editor-tela" tabindex="0"
+        aria-label="Tela de pintura 12 por 12. Setas movem o cursor, Espaço pinta, Delete apaga, teclas 0 a 5 trocam a cor."></canvas>
+      <div class="editor-lado">
+        <canvas id="editor-previa" class="editor-previa" width="96" height="96" aria-label="Prévia animada da skin"></canvas>
+        <div id="editor-paleta" class="editor-paleta" role="group" aria-label="Cores"></div>
+      </div>
+    </div>
+    <p id="editor-status" class="editor-status" aria-live="polite"></p>
+    <div class="editor-botoes">
+      <button id="editor-limpar" type="button" class="btn-bloco btn-secundario">↺ ORIGINAL</button>
+      <button id="editor-espelhar" type="button" class="btn-bloco btn-secundario">⇋ ESPELHAR</button>
+    </div>
+    <label class="campo">
+      <span>Código da skin (compartilhe ou cole aqui)</span>
+      <input id="editor-codigo" type="text" spellcheck="false" autocomplete="off" placeholder="CM1.…">
+    </label>
+    <div class="editor-botoes">
+      <button id="editor-copiar" type="button" class="btn-bloco btn-secundario">📋 COPIAR</button>
+      <button id="editor-importar" type="button" class="btn-bloco btn-secundario">📥 IMPORTAR</button>
+    </div>
+    <button id="editor-salvar" type="button" class="btn-bloco">💾 SALVAR E USAR</button>
+  </dialog>
+
+  <noscript>A Calculadora Maluca precisa de JavaScript para funcionar.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+node_modules/
+backend/target/
+backend/dados/
+dados/
+.env
+.DS_Store
+Thumbs.db
